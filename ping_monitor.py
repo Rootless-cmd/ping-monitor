@@ -118,9 +118,13 @@ def collapsible_card(
         ),
     )
 
+# Unix ping 输出解析（macOS / Linux）
 TIME_RE = re.compile(r"time=(\d+(?:\.\d+)?)\s*ms", re.IGNORECASE)
 SEQ_RE = re.compile(r"icmp_seq=(\d+)", re.IGNORECASE)
 SEQ_TIMEOUT_RE = re.compile(r"icmp_seq\s*(\d+)", re.IGNORECASE)
+
+# Windows ping 输出解析
+WIN_TIME_RE = re.compile(r"time[=<](\d+(?:\.\d+)?)\s*ms", re.IGNORECASE)
 
 
 def ipv4_literal_error(line: str) -> Optional[str]:
@@ -284,6 +288,8 @@ async def stream_ping(
                 continue
 
             lower = line.lower()
+
+            # ---------- Unix (macOS / Linux) ----------
             if "time=" in lower or "time<" in lower:
                 m = TIME_RE.search(line)
                 delay = float(m.group(1)) if m else None
@@ -296,7 +302,7 @@ async def stream_ping(
                 stats.last_delay_ms = delay
                 stats.status = "检测中"
                 on_line(host, seq + 1, 1, delay)
-            elif "timeout" in lower or "no answer" in lower:
+            elif ("timeout" in lower or "no answer" in lower) and "icmp_seq" in lower:
                 sm = SEQ_TIMEOUT_RE.search(line)
                 seq = int(sm.group(1)) if sm else seq_counter
                 seq_counter = max(seq_counter, seq + 1)
@@ -304,8 +310,26 @@ async def stream_ping(
                 stats.lost = stats.sent - stats.received
                 stats.status = "检测中"
                 on_line(host, seq + 1, 0, None)
+
+            # ---------- Windows ----------
+            elif "reply from" in lower and ("time" in lower or "ttl" in lower):
+                m = WIN_TIME_RE.search(line)
+                delay = float(m.group(1)) if m else None
+                seq_counter += 1
+                stats.sent += 1
+                stats.received += 1
+                stats.lost = stats.sent - stats.received
+                stats.last_delay_ms = delay
+                stats.status = "检测中"
+                on_line(host, seq_counter, 1, delay)
+            elif ("timed out" in lower or "unreachable" in lower
+                    or "failure" in lower or "host unreachable" in lower):
+                seq_counter += 1
+                stats.sent += 1
+                stats.lost = stats.sent - stats.received
+                stats.status = "检测中"
+                on_line(host, seq_counter, 0, None)
             elif "packets transmitted" in lower or "packet loss" in lower:
-                # 统计摘要行，部分系统在最后打印
                 pass
     finally:
         if proc.returncode is None and not session._cancelled.is_set():
