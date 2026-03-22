@@ -1,0 +1,34 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install flet
+        run: pip install flet pyinstaller
+
+      - name: Build EXE
+        run: flet pack ping_monitor.py --name PingMonitor --product-name "Ping Monitor" --file-description "Ping 延迟与丢包监测工具" --company-name PingMonitor --product-version "1.0.0" --file-version "1.0.0.0" -y
+
+      - name: Show output
+        run: ls -lh dist/PingMonitor/
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PingMonitor-Windows-EXE
+          path: dist/PingMonitor/PingMonitor.exe
