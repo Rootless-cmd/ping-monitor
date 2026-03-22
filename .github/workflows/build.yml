@@ -25,10 +25,10 @@ jobs:
         run: flet pack ping_monitor.py --name PingMonitor --product-name "Ping Monitor" --file-description "Ping 延迟与丢包监测工具" --company-name PingMonitor --product-version "1.0.0" --file-version "1.0.0.0" -y
 
       - name: Show output
-        run: dir dist\PingMonitor\
+        run: dir dist\
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
           name: PingMonitor-Windows-EXE
-          path: dist/PingMonitor/PingMonitor.exe
+          path: dist/PingMonitor.exe
