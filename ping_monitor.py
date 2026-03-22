@@ -13,11 +13,17 @@ from __future__ import annotations
 import asyncio
 import re
 import socket
+import subprocess
 import sys
 from dataclasses import dataclass
 from typing import Callable, Iterable, Optional
 
 import flet as ft
+
+# Windows：避免每次 ping 都弹出黑色 cmd 窗口（子进程默认会建控制台）
+_SUBPROCESS_KWARGS: dict = {}
+if sys.platform == "win32":
+    _SUBPROCESS_KWARGS = {"creationflags": subprocess.CREATE_NO_WINDOW}
 
 # macOS 风格配色
 BG = "#F2F2F7"
@@ -257,6 +263,7 @@ async def stream_ping(
             *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
+            **_SUBPROCESS_KWARGS,
         )
         session.add_proc(proc)
     except Exception as e:
@@ -348,6 +355,7 @@ async def ping_once_for_scan(ip: str, scan_session: LanScanSession) -> bool:
             *ping_once_cmd(ip),
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
+            **_SUBPROCESS_KWARGS,
         )
         scan_session.add_proc(proc)
     except Exception:
